@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>YTDown — YouTube Video & Audio Downloader</title>
+  <link rel="stylesheet" href="style.css" />
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎬</text></svg>" />
+</head>
+<body>
+
+<div class="bg-glow"></div>
+
+<!-- ── Download Loader Overlay ── -->
+<div id="dlOverlay" class="dl-overlay hidden" onclick="cancelOverlay()">
+  <div class="dl-box" onclick="event.stopPropagation()">
+    <div class="dl-ring"></div>
+    <p class="dl-title">Preparing your download…</p>
+    <p class="dl-sub">Extracting stream from YouTube.<br>Your browser will prompt the download shortly.</p>
+    <button class="btn-cancel" onclick="cancelOverlay()">Cancel</button>
+  </div>
+</div>
+
+<div class="container">
+
+  <!-- Header -->
+  <header class="header">
+    <div class="logo">
+      <span class="logo-icon">▶</span>
+      <span>YT<span class="red">Down</span></span>
+    </div>
+    <p class="tagline">Download YouTube videos in any resolution or as MP3 — fast &amp; free</p>
+  </header>
+
+  <!-- Search Card -->
+  <div class="card search-card">
+    <div class="input-wrap">
+      <span class="input-emoji">🔗</span>
+      <input
+        id="urlInput"
+        type="url"
+        placeholder="Paste YouTube video or Shorts URL here…"
+        autocomplete="off"
+        spellcheck="false"
+      />
+      <button class="btn-fetch" id="fetchBtn" onclick="fetchInfo()">
+        <span id="fetchText">Fetch</span>
+        <span id="fetchSpinner" class="ring hidden"></span>
+      </button>
+    </div>
+    <div id="errBox" class="err-box hidden"></div>
+  </div>
+
+  <!-- Video Info -->
+  <div class="card info-card hidden" id="infoCard">
+    <div class="thumb-wrap" id="thumbWrap">
+      <img id="thumb" src="" alt="Thumbnail" />
+      <div class="thumb-play">▶</div>
+    </div>
+    <div class="info-meta">
+      <h2 id="vTitle" class="v-title"></h2>
+      <p id="vAuthor" class="v-author"></p>
+      <p id="vDuration" class="v-duration"></p>
+    </div>
+  </div>
+
+  <!-- Format Picker -->
+  <div class="card picker-card hidden" id="pickerCard">
+
+    <!-- Tabs -->
+    <div class="tabs">
+      <button class="tab active" id="tabVideo" onclick="switchTab('video')">🎬 Video</button>
+      <button class="tab" id="tabAudio" onclick="switchTab('audio')">🎵 MP3 / Audio</button>
+    </div>
+
+    <!-- Video Tab -->
+    <div id="paneVideo">
+      <p class="grid-label">Select Video Quality</p>
+      <div class="q-grid" id="videoGrid"></div>
+
+      <!-- Options -->
+      <div class="opt-panel">
+        <label class="toggle-row" for="noAudio">
+          <span class="toggle-lbl">
+            <span class="toggle-ico">🔇</span>
+            <span>Download video <strong>without audio</strong> (mute)</span>
+          </span>
+          <input type="checkbox" id="noAudio" class="t-check" onchange="onToggleAudio()" />
+          <span class="t-track"><span class="t-thumb"></span></span>
+        </label>
+      </div>
+
+      <p id="vBadge" class="sel-badge hidden">
+        Selected: <strong id="vBadgeTxt"></strong>
+      </p>
+
+      <button class="btn-dl" id="dlVideoBtn" onclick="downloadNow('video')" disabled>
+        ⬇ Download Video
+      </button>
+    </div>
+
+    <!-- Audio Tab -->
+    <div id="paneAudio" class="hidden">
+      <p class="grid-label">Select Audio Track</p>
+      <div class="q-grid" id="audioGrid"></div>
+
+      <p id="aBadge" class="sel-badge hidden">
+        Selected: <strong id="aBadgeTxt"></strong>
+      </p>
+
+      <button class="btn-dl btn-dl-audio" id="dlAudioBtn" onclick="downloadNow('audio')" disabled>
+        ⬇ Download Audio / MP3
+      </button>
+    </div>
+
+  </div>
+
+  <!-- Footer -->
+  <footer class="footer">
+    <p>Client-side static application · Unlimited downloads · For personal use only</p>
+  </footer>
+
+</div>
+
+<script src="app.js"></script>
+</body>
+</html>
