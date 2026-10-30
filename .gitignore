@@ -1,0 +1,8 @@
+node_modules/
+npm-debug.log
+.env
+.DS_Store
+*.log
+
+# yt-dlp binary (auto-downloaded on first run)
+bin/
