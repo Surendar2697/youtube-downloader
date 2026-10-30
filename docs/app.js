@@ -1,378 +1,294 @@
 /* ──────────────────────────────────────────────────────────────────────────
-   YTDown — Client-side YouTube Video & Audio Downloader
-   Runs completely in the browser for GitHub Pages static hosting
+   YT Downloader — Local Web Application Client
    ────────────────────────────────────────────────────────────────────────── */
 
-// Known active Invidious instances with CORS and API enabled
-const INVIDIOUS_INSTANCES = [
-  'https://yt.chocolatemoo53.com',
-  'https://invidious.jing.rocks',
-  'https://iv.melmac.space',
-  'https://invidious.privacydev.net'
-];
-
-let videoData = null;
-let selectedVideoFormat = null;
-let selectedAudioFormat = null;
-let currentVideoId = '';
-let overlayTimer = null;
+let videoInfo = null;
+let selectedVideoFmt = null;
+let selectedAudioFmt = null;
+let currentTab = 'video';
+let overlayDismissTimer = null;
 
 // ── DOM Helpers ──────────────────────────────────────────────────────────────
 const $ = (id) => document.getElementById(id);
 
-function showErr(msg) {
-  const b = $('errBox');
-  b.textContent = '⚠️ ' + msg;
-  b.classList.remove('hidden');
+function showError(msg) {
+  const el = $('errorMsg');
+  el.textContent = '⚠️ ' + msg;
+  el.classList.remove('hidden');
 }
 
-function clearErr() {
-  $('errBox').classList.add('hidden');
+function clearError() {
+  $('errorMsg').classList.add('hidden');
 }
 
-function extractVideoId(url) {
-  if (!url) return null;
-  const match = url.match(/(?:v=|youtu\.be\/|\/embed\/|\/shorts\/)([a-zA-Z0-9_-]{11})/);
-  return match ? match[1] : null;
-}
-
-function formatDuration(sec) {
-  if (!sec) return '';
-  const s = parseInt(sec, 10);
-  const h = Math.floor(s / 3600);
-  const m = Math.floor((s % 3600) / 60);
-  const rem = s % 60;
+function formatDuration(s) {
+  if (!s) return '';
+  const sec = parseInt(s, 10);
+  const h = Math.floor(sec / 3600);
+  const m = Math.floor((sec % 3600) / 60);
+  const rem = sec % 60;
   if (h > 0) {
     return `⏱ ${h}:${String(m).padStart(2, '0')}:${String(rem).padStart(2, '0')}`;
   }
   return `⏱ ${m}:${String(rem).padStart(2, '0')}`;
 }
 
+function formatBytes(bytes) {
+  if (!bytes) return '';
+  const b = parseInt(bytes, 10);
+  if (b >= 1e9) return `~${(b / 1e9).toFixed(1)} GB`;
+  if (b >= 1e6) return `~${(b / 1e6).toFixed(0)} MB`;
+  return `~${Math.round(b / 1e3)} KB`;
+}
+
 // ── Loader Overlay ────────────────────────────────────────────────────────────
-function showOverlay() {
-  clearTimeout(overlayTimer);
+function showLoader() {
+  clearTimeout(overlayDismissTimer);
   $('dlOverlay').classList.remove('hidden');
 }
 
-function hideOverlay() {
-  clearTimeout(overlayTimer);
+function hideLoader() {
+  clearTimeout(overlayDismissTimer);
   $('dlOverlay').classList.add('hidden');
 }
 
 function cancelOverlay() {
-  hideOverlay();
+  hideLoader();
 }
 
-function scheduleOverlayDismiss() {
+function scheduleLoaderDismiss() {
   const dismiss = () => {
-    hideOverlay();
+    hideLoader();
     window.removeEventListener('focus', dismiss);
   };
-  overlayTimer = setTimeout(dismiss, 5000);
+  overlayDismissTimer = setTimeout(dismiss, 6000);
   window.addEventListener('focus', dismiss, { once: true });
 }
 
-// ── Fetch Video Info via Invidious API ────────────────────────────────────────
-async function fetchVideoData(videoId) {
-  for (const base of INVIDIOUS_INSTANCES) {
-    try {
-      const controller = new AbortController();
-      const timer = setTimeout(() => controller.abort(), 6000);
-      const res = await fetch(`${base}/api/v1/videos/${videoId}`, {
-        signal: controller.signal
-      });
-      clearTimeout(timer);
-      if (res.ok) {
-        const json = await res.json();
-        if (json && (json.adaptiveFormats || json.formatStreams)) {
-          return json;
-        }
-      }
-    } catch {
-      // Try next instance
-    }
-  }
-
-  // Fallback: oEmbed for basic details
-  const oembedRes = await fetch(
-    `https://www.youtube.com/oembed?url=https://www.youtube.com/watch?v=${videoId}&format=json`
-  );
-  if (oembedRes.ok) {
-    const oembed = await oembedRes.json();
-    return {
-      title: oembed.title,
-      author: oembed.author_name,
-      videoId,
-      adaptiveFormats: []
-    };
-  }
-
-  throw new Error('Could not fetch video info. Please verify the URL and try again.');
-}
-
+// ── Fetch Video Info via Local API ────────────────────────────────────────────
 async function fetchInfo() {
-  clearErr();
+  clearError();
   const rawUrl = $('urlInput').value.trim();
   if (!rawUrl) {
-    showErr('Please paste a YouTube URL.');
+    showError('Please paste a YouTube URL.');
     return;
   }
 
-  const videoId = extractVideoId(rawUrl);
-  if (!videoId) {
-    showErr('Invalid YouTube URL. Please check the link.');
-    return;
-  }
-
-  currentVideoId = videoId;
-
-  // Toggle fetch spinner
+  // Toggle button spinner
   const btn = $('fetchBtn');
   btn.disabled = true;
-  $('fetchText').classList.add('hidden');
-  $('fetchSpinner').classList.remove('hidden');
+  btn.querySelector('.btn-text').classList.add('hidden');
+  btn.querySelector('.btn-spinner').classList.remove('hidden');
 
-  // Hide previous cards
-  $('infoCard').classList.add('hidden');
-  $('pickerCard').classList.add('hidden');
-  selectedVideoFormat = null;
-  selectedAudioFormat = null;
+  // Reset previous results
+  $('videoInfo').classList.add('hidden');
+  $('formatSection').classList.add('hidden');
+  selectedVideoFmt = null;
+  selectedAudioFmt = null;
 
   try {
-    const data = await fetchVideoData(videoId);
-    videoData = data;
+    const res = await fetch(`/api/info?url=${encodeURIComponent(rawUrl)}`);
+    const data = await res.json();
+
+    if (!res.ok) {
+      throw new Error(data.error || 'Failed to fetch video details.');
+    }
+
+    videoInfo = data;
     renderVideoInfo(data);
     renderFormats(data);
 
-    $('infoCard').classList.remove('hidden');
-    $('pickerCard').classList.remove('hidden');
+    $('videoInfo').classList.remove('hidden');
+    $('formatSection').classList.remove('hidden');
   } catch (err) {
-    showErr(err.message || 'Error loading video.');
+    showError(err.message || 'Error communicating with server.');
   } finally {
     btn.disabled = false;
-    $('fetchText').classList.remove('hidden');
-    $('fetchSpinner').classList.add('hidden');
+    btn.querySelector('.btn-text').classList.remove('hidden');
+    btn.querySelector('.btn-spinner').classList.add('hidden');
   }
 }
 
 // ── Render Info Card ──────────────────────────────────────────────────────────
 function renderVideoInfo(data) {
-  const thumbUrl = `https://i.ytimg.com/vi/${currentVideoId}/hqdefault.jpg`;
-  $('thumb').src = thumbUrl;
-  $('vTitle').textContent = data.title || 'YouTube Video';
-  $('vAuthor').textContent = data.author ? `📺 ${data.author}` : '';
-  $('vDuration').textContent = data.lengthSeconds ? formatDuration(data.lengthSeconds) : '';
+  $('thumbnail').src = data.thumbnail || '';
+  $('videoTitle').textContent = data.title || 'YouTube Video';
+  $('videoChannel').textContent = data.channel ? `📺 ${data.channel}` : '';
+  $('videoDuration').textContent = data.duration ? formatDuration(data.duration) : '';
 
   $('thumbWrap').onclick = () => {
-    window.open(`https://www.youtube.com/watch?v=${currentVideoId}`, '_blank');
+    window.open($('urlInput').value.trim(), '_blank');
   };
 }
 
-// ── Render Format Buttons ─────────────────────────────────────────────────────
+// ── Render Quality Buttons ────────────────────────────────────────────────────
 function renderFormats(data) {
-  const formats = data.adaptiveFormats || [];
-  const progStreams = data.formatStreams || [];
+  // Video Qualities
+  const vGrid = $('qualityGrid');
+  vGrid.innerHTML = '';
 
-  // Group and sort video formats
-  const seenResolutions = new Set();
-  const videoList = [];
+  const vFormats = data.videoFormats || [];
+  if (vFormats.length === 0) {
+    vGrid.innerHTML = '<p style="color:var(--text-muted);font-size:.9rem;">No video formats available.</p>';
+  } else {
+    vFormats.forEach((fmt) => {
+      const btn = document.createElement('button');
+      btn.className = 'quality-btn';
 
-  // Progressive streams (with audio)
-  progStreams.forEach((f) => {
-    const label = f.qualityLabel || f.resolution;
-    if (label && !seenResolutions.has(`prog-${label}`)) {
-      seenResolutions.add(`prog-${label}`);
-      videoList.push({
-        url: f.url,
-        label,
-        container: f.container || 'mp4',
-        hasAudio: true,
-        height: parseInt(label, 10) || 0
-      });
-    }
-  });
+      const size = fmt.filesize ? `<span class="q-sub">${formatBytes(fmt.filesize)}</span>` : '';
+      const fps = fmt.fps && fmt.fps > 30 ? `<span class="q-sub">${fmt.fps}fps</span>` : '';
+      const badgeCls = fmt.hasAudio ? 'prog' : 'only';
+      const badgeTxt = fmt.hasAudio ? '▶+🎵' : '▶ only';
 
-  // Adaptive video-only streams
-  formats
-    .filter((f) => f.resolution && f.type && f.type.startsWith('video/'))
-    .forEach((f) => {
-      const label = f.qualityLabel || f.resolution;
-      const key = `${label}-${f.container || 'mp4'}`;
-      if (!seenResolutions.has(key)) {
-        seenResolutions.add(key);
-        videoList.push({
-          url: f.url,
-          label,
-          container: f.container || 'mp4',
-          hasAudio: false,
-          height: parseInt(label, 10) || 0
-        });
-      }
-    });
-
-  // Sort descending by resolution (4K down to 144p)
-  videoList.sort((a, b) => b.height - a.height);
-
-  // If no streams found via Invidious, supply standard resolution presets
-  if (videoList.length === 0) {
-    ['1080p', '720p', '480p', '360p', '240p', '144p'].forEach((res) => {
-      videoList.push({
-        url: `https://www.youtube.com/watch?v=${currentVideoId}`,
-        label: res,
-        container: 'mp4',
-        hasAudio: true,
-        height: parseInt(res, 10)
-      });
+      btn.innerHTML = `
+        <span class="q-badge ${badgeCls}">${badgeTxt}</span>
+        <span class="q-label">${fmt.label}</span>
+        ${fps}
+        <span class="q-sub">${(fmt.ext || 'mp4').toUpperCase()}</span>
+        ${size}
+      `;
+      btn.onclick = () => selectVideoQuality(btn, fmt);
+      vGrid.appendChild(btn);
     });
   }
 
-  // Render Video Grid
-  const vg = $('videoGrid');
-  vg.innerHTML = '';
-  videoList.forEach((fmt) => {
-    const btn = document.createElement('button');
-    btn.className = 'q-btn';
+  // Audio Qualities
+  const aGrid = $('audioGrid');
+  aGrid.innerHTML = '';
 
-    let tag = 'SD';
-    let tagCls = 'sd';
-    if (fmt.height >= 2160) { tag = '4K'; tagCls = 'hd'; }
-    else if (fmt.height >= 1440) { tag = '2K'; tagCls = 'hd'; }
-    else if (fmt.height >= 1080) { tag = 'FHD'; tagCls = 'hd'; }
-    else if (fmt.height >= 720) { tag = 'HD'; tagCls = 'hd'; }
-    else if (fmt.height <= 240) { tag = 'LQ'; tagCls = 'lo'; }
-
-    const audioIndicator = fmt.hasAudio ? '🔊' : '🔇';
-
-    btn.innerHTML = `
-      <span class="q-tag ${tagCls}">${tag}</span>
-      <span class="q-main">${fmt.label}</span>
-      <span class="q-sub">${(fmt.container || 'MP4').toUpperCase()} · ${audioIndicator}</span>
-    `;
-    btn.onclick = () => selectVideo(btn, fmt);
-    vg.appendChild(btn);
-  });
-
-  // Render Audio Tracks
-  const ag = $('audioGrid');
-  ag.innerHTML = '';
-  const audioStreams = formats.filter(
-    (f) => f.type && (f.type.startsWith('audio/') || f.container === 'm4a' || f.container === 'webm')
-  );
-
-  const audioList = [];
-  const seenBitrates = new Set();
-
-  audioStreams.forEach((f) => {
-    const bitrate = f.bitrate ? Math.round(parseInt(f.bitrate, 10) / 1000) : null;
-    const label = bitrate ? `${bitrate} kbps` : 'Audio Track';
-    if (!seenBitrates.has(label)) {
-      seenBitrates.add(label);
-      audioList.push({
-        url: f.url,
-        label,
-        container: f.container || 'mp3'
-      });
-    }
-  });
-
-  if (audioList.length === 0) {
-    audioList.push(
-      { label: 'High Quality MP3', container: 'mp3', url: '' },
-      { label: 'Standard 128 kbps', container: 'mp3', url: '' }
-    );
+  const aFormats = data.audioFormats || [];
+  if (aFormats.length === 0) {
+    aGrid.innerHTML = '<p style="color:var(--text-muted);font-size:.9rem;">No audio formats available.</p>';
+  } else {
+    aFormats.forEach((fmt) => {
+      const btn = document.createElement('button');
+      btn.className = 'quality-btn audio-btn';
+      btn.innerHTML = `
+        <span class="q-label">🎵</span>
+        <span class="q-sub" style="font-size:.92rem;font-weight:700;">${fmt.abr} kbps</span>
+        <span class="q-sub">MP3</span>
+      `;
+      btn.onclick = () => selectAudioQuality(btn, fmt);
+      aGrid.appendChild(btn);
+    });
   }
 
-  audioList.forEach((fmt) => {
-    const btn = document.createElement('button');
-    btn.className = 'q-btn';
-    btn.innerHTML = `
-      <span class="q-tag audio">MP3</span>
-      <span class="q-main">🎵</span>
-      <span class="q-sub" style="font-weight:700; color:var(--text);">${fmt.label}</span>
-    `;
-    btn.onclick = () => selectAudio(btn, fmt);
-    ag.appendChild(btn);
-  });
-
-  $('dlVideoBtn').disabled = true;
-  $('dlAudioBtn').disabled = true;
-  $('vBadge').classList.add('hidden');
-  $('aBadge').classList.add('hidden');
+  $('downloadVideoBtn').disabled = true;
+  $('downloadAudioBtn').disabled = true;
+  $('selectedQualityBadge').classList.add('hidden');
+  $('selectedAudioBadge').classList.add('hidden');
 }
 
 // ── Selection Handlers ────────────────────────────────────────────────────────
-function selectVideo(btn, fmt) {
-  $('videoGrid').querySelectorAll('.q-btn').forEach((b) => b.classList.remove('sel'));
-  btn.classList.add('sel');
-  selectedVideoFormat = fmt;
-  $('dlVideoBtn').disabled = false;
-  $('vBadge').classList.remove('hidden');
+function selectVideoQuality(btn, fmt) {
+  document.querySelectorAll('#qualityGrid .quality-btn').forEach((b) => b.classList.remove('selected'));
+  btn.classList.add('selected');
+  selectedVideoFmt = fmt;
+  $('downloadVideoBtn').disabled = false;
+  $('selectedQualityBadge').classList.remove('hidden');
 
-  const muteState = $('noAudio').checked ? 'Without Audio (Mute)' : (fmt.hasAudio ? 'With Audio' : 'Video Only');
-  $('vBadgeTxt').textContent = `${fmt.label} ${(fmt.container || 'mp4').toUpperCase()} — ${muteState}`;
+  updateVideoBadgeText();
 }
 
-function selectAudio(btn, fmt) {
-  $('audioGrid').querySelectorAll('.q-btn').forEach((b) => b.classList.remove('a-sel'));
-  btn.classList.add('a-sel');
-  selectedAudioFormat = fmt;
-  $('dlAudioBtn').disabled = false;
-  $('aBadge').classList.remove('hidden');
-  $('aBadgeTxt').textContent = `${fmt.label} ${(fmt.container || 'mp3').toUpperCase()}`;
+function selectAudioQuality(btn, fmt) {
+  document.querySelectorAll('#audioGrid .quality-btn').forEach((b) => b.classList.remove('selected'));
+  btn.classList.add('selected');
+  selectedAudioFmt = fmt;
+  $('downloadAudioBtn').disabled = false;
+  $('selectedAudioBadge').classList.remove('hidden');
+  $('selectedAudioLabel').textContent = `${fmt.abr} kbps MP3 Audio`;
 }
 
 function onToggleAudio() {
-  if (selectedVideoFormat) {
-    const muteState = $('noAudio').checked ? 'Without Audio (Mute)' : (selectedVideoFormat.hasAudio ? 'With Audio' : 'Video Only');
-    $('vBadgeTxt').textContent = `${selectedVideoFormat.label} ${(selectedVideoFormat.container || 'mp4').toUpperCase()} — ${muteState}`;
+  if (selectedVideoFmt) {
+    updateVideoBadgeText();
   }
+}
+
+function updateVideoBadgeText() {
+  if (!selectedVideoFmt) return;
+  const isNoAudio = $('noAudioToggle').checked;
+  const audioStatus = isNoAudio ? 'Without Audio (Mute)' : (selectedVideoFmt.hasAudio ? 'Video + Audio' : 'Video with Audio Merged');
+  const fpsText = selectedVideoFmt.fps > 30 ? ` @ ${selectedVideoFmt.fps}fps` : '';
+  $('selectedQualityLabel').textContent = `${selectedVideoFmt.label}${fpsText} — ${audioStatus}`;
 }
 
 // ── Tab Switcher ──────────────────────────────────────────────────────────────
-function switchTab(tab) {
-  $('tabVideo').classList.toggle('active', tab === 'video');
-  $('tabAudio').classList.toggle('active', tab === 'audio');
-  $('paneVideo').classList.toggle('hidden', tab !== 'video');
-  $('paneAudio').classList.toggle('hidden', tab !== 'audio');
+function switchTab(name, tabEl) {
+  currentTab = name;
+  document.querySelectorAll('.tab').forEach((t) => t.classList.remove('active'));
+  tabEl.classList.add('active');
+  $('videoTab').classList.toggle('hidden', name !== 'video');
+  $('audioTab').classList.toggle('hidden', name !== 'audio');
 }
 
-// ── Trigger Download in Browser ───────────────────────────────────────────────
+// ── Download Execution ────────────────────────────────────────────────────────
 function downloadNow(type) {
-  showOverlay();
+  if (!videoInfo) return;
 
-  let targetUrl = '';
-  let filename = (videoData?.title || 'download').replace(/[^\w\s\-().]/g, '').trim().substring(0, 100);
+  const url = $('urlInput').value.trim();
+  const title = videoInfo.title || 'download';
+  let downloadUrl = '';
 
   if (type === 'audio') {
-    if (!selectedAudioFormat) return;
-    targetUrl = selectedAudioFormat.url;
-    filename += `.${selectedAudioFormat.container || 'mp3'}`;
+    if (!selectedAudioFmt) return;
+    downloadUrl = buildUrl('/api/download', {
+      url,
+      formatId: selectedAudioFmt.formatId,
+      type: 'audio',
+      title,
+    });
   } else {
-    if (!selectedVideoFormat) return;
-    targetUrl = selectedVideoFormat.url;
-    const isMute = $('noAudio').checked;
-    filename += isMute ? '-noaudio.mp4' : `.${selectedVideoFormat.container || 'mp4'}`;
+    if (!selectedVideoFmt) return;
+    const isNoAudio = $('noAudioToggle').checked;
+    downloadUrl = buildUrl('/api/download', {
+      url,
+      formatId: selectedVideoFmt.formatId,
+      type: 'video',
+      noAudio: isNoAudio ? 'true' : 'false',
+      title,
+    });
   }
 
-  if (!targetUrl) {
-    // If direct stream URL was not returned, open video source
-    targetUrl = `https://www.youtube.com/watch?v=${currentVideoId}`;
-  }
-
-  // Create native download anchor
-  const a = document.createElement('a');
-  a.href = targetUrl;
-  a.download = filename;
-  a.target = '_blank';
-  a.rel = 'noopener noreferrer';
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-
-  scheduleOverlayDismiss();
+  triggerDownload(downloadUrl);
 }
 
-// ── Event Listeners ───────────────────────────────────────────────────────────
+function buildUrl(base, params) {
+  const u = new URL(base, window.location.origin);
+  Object.entries(params).forEach(([k, v]) => {
+    if (v != null) u.searchParams.set(k, String(v));
+  });
+  return u.href;
+}
+
+// ── Trigger Native Browser Download ───────────────────────────────────────────
+// Uses a hidden iframe pointed at the streaming download endpoint.
+// The server returns Content-Disposition: attachment, prompting the browser's
+// native download manager to download and save the file directly.
+// This guarantees:
+//   1. The video NEVER plays in a new tab or window.
+//   2. The main page stays responsive.
+//   3. Native browser download dialog appears.
+function triggerDownload(downloadUrl) {
+  showLoader();
+
+  // Create an invisible iframe for download triggering
+  const iframe = document.createElement('iframe');
+  iframe.style.display = 'none';
+  iframe.src = downloadUrl;
+  document.body.appendChild(iframe);
+
+  // Clean up iframe after download starts
+  setTimeout(() => {
+    if (iframe.parentNode) {
+      iframe.parentNode.removeChild(iframe);
+    }
+  }, 90000);
+
+  scheduleLoaderDismiss();
+}
+
+// ── Event Shortcuts ───────────────────────────────────────────────────────────
 $('urlInput').addEventListener('keydown', (e) => {
   if (e.key === 'Enter') fetchInfo();
 });

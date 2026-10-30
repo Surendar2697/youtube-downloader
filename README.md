@@ -1,53 +1,88 @@
 # YTDown 🎬 — YouTube Video & Audio Downloader
 
-> 🚀 **Live Web App:** [https://surendar2697.github.io/youtube-downloader/](https://surendar2697.github.io/youtube-downloader/)
-
-A fast, mobile-friendly, client-side web application to download YouTube videos in any resolution (144p to 4K) or as MP3/Audio. Designed to run natively on GitHub Pages with zero server backend.
+A full-featured, mobile-responsive web application to download YouTube videos in any resolution (144p up to 4K) or as MP3 audio. Features native browser downloads with custom options (video only / without audio) and live stream extraction powered by `yt-dlp`.
 
 ---
 
 ## ✨ Features
 
-- 🔗 **Instant Paste & Fetch**: Paste any YouTube link (Videos or Shorts) and fetch formats instantly.
-- 🎬 **Full Resolution Options**: 2160p (4K), 1440p (2K), 1080p (FHD), 720p (HD), 480p, 360p, 240p, 144p.
-- 🎵 **MP3 & Audio Downloads**: Download direct audio streams in multiple bitrates.
-- 🔇 **Mute / Without Audio Toggle**: Customize your download to get pure video tracks with audio stripped.
-- 📱 **Fully Mobile Responsive**: Clean dark glassmorphism design optimized for phones, tablets, and desktop.
-- 📥 **Native Browser Downloads**: Downloads are triggered straight to your browser’s download manager with a sleek loading overlay.
-- ⚡ **Unlimited Time & Zero Server Cost**: Operates entirely client-side on GitHub Pages.
+- 🔗 **Instant Paste & Fetch**: Paste any YouTube link (Videos or Shorts) and fetch available formats immediately.
+- 🎬 **All Video Qualities**: 2160p (4K), 1440p (2K), 1080p (FHD), 720p (HD), 480p, 360p, 240p, 144p.
+- 🎵 **MP3 & Audio Downloads**: Select bitrates (e.g., 130 kbps) and download audio files.
+- 🔇 **Without Audio Toggle**: Download pure video without audio (mute option).
+- 📥 **Direct Browser Downloads**: Triggers native browser download prompts via `Content-Disposition: attachment`. Never opens or plays videos in YouTube tabs.
+- ⏳ **Download Loader Overlay**: Smooth fullscreen animated loader while the stream is fetched and prepared.
+- 📱 **Mobile Responsive**: Fully responsive dark glassmorphism UI for mobile devices, tablets, and desktops.
+- ⚡ **Zero Timeout**: Configured for unlimited download time even on large 4K files.
 
 ---
 
-## 🌐 Live Deployment on GitHub Pages
+## 🚀 Running Locally
 
-1. Go to your repository: [https://github.com/Surendar2697/youtube-downloader](https://github.com/Surendar2697/youtube-downloader)
-2. Click **Settings** ➔ **Pages** (in the left sidebar).
-3. Under **Build and deployment**:
-   - **Source**: `Deploy from a branch` (or `GitHub Actions`)
-   - **Branch**: `main` ➔ `/ (root)` or `/docs`
-   - Click **Save**.
-4. Your site will be live at:
-   👉 **[https://surendar2697.github.io/youtube-downloader/](https://surendar2697.github.io/youtube-downloader/)**
+### Prerequisites
+- **Node.js 18+**
+- **npm**
+
+### Quick Start
+```bash
+# 1. Clone repository
+git clone https://github.com/Surendar2697/youtube-downloader.git
+cd youtube-downloader
+
+# 2. Install dependencies
+npm install
+
+# 3. Start web server
+npm start
+```
+
+Open **[http://localhost:3000](http://localhost:3000)** in your browser.
+
+> 💡 *On first run, the server automatically downloads the latest `yt-dlp` binary into `bin/` (~9MB).*
 
 ---
 
-## 🛠️ Project Structure
+## ☁️ Free 1-Click Cloud Deployment
+
+To host this web application online with unlimited runtime and working downloads:
+
+### Option 1: Railway (Recommended — Free)
+1. Go to [railway.app](https://railway.app) and sign in with GitHub.
+2. Click **New Project** ➔ **Deploy from GitHub repo**.
+3. Select `Surendar2697/youtube-downloader`.
+4. Railway will auto-detect Node.js, run `npm install` and `npm start`.
+5. Under **Settings** ➔ **Networking**, click **Generate Domain** to get your public live URL.
+
+### Option 2: Render (Free)
+1. Go to [render.com](https://render.com) and create a free account.
+2. Click **New +** ➔ **Web Service**.
+3. Connect your GitHub repository: `Surendar2697/youtube-downloader`.
+4. Configure:
+   - **Environment**: `Node`
+   - **Build Command**: `npm install`
+   - **Start Command**: `npm start`
+5. Click **Deploy Web Service**.
+
+---
+
+## 📂 Project Structure
 
 ```
 youtube-downloader/
-├── index.html                  # Main web application entry point
-├── style.css                   # Responsive dark-theme styling
-├── app.js                      # Client-side stream extractor & downloader
-├── docs/                       # Mirrored build for GitHub Pages docs support
-│   ├── index.html
-│   ├── style.css
-│   └── app.js
-├── .github/workflows/deploy.yml # GitHub Actions auto-deployment workflow
-└── README.md
+├── server.js                  # Express API server (streaming download engine)
+├── ytdlp.js                   # yt-dlp binary downloader & bootstrapper
+├── package.json               # Node.js dependencies & scripts
+├── Procfile                   # Cloud process file (for Railway/Render/Heroku)
+├── public/                    # Web application frontend assets
+│   ├── index.html             # Clean responsive UI
+│   ├── style.css              # Dark glassmorphism styles
+│   └── script.js              # Client logic & download handlers
+├── docs/                      # Static mirror
+└── README.md                  # Project documentation
 ```
 
 ---
 
 ## ⚖️ Legal Notice
 
-This application is strictly for personal and educational use. Please respect YouTube's [Terms of Service](https://www.youtube.com/t/terms) and content creators' rights.
+This application is strictly for personal, non-commercial use. Please respect YouTube's [Terms of Service](https://www.youtube.com/t/terms) and creators' copyright.

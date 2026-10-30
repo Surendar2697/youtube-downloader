@@ -2,11 +2,3 @@ node_modules/
 bin/
 *.log
 .DS_Store
-
-# Backend local files (not deployed to static GitHub web server)
-Procfile
-package.json
-package-lock.json
-server.js
-ytdlp.js
-public/

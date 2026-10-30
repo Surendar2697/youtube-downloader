@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>YTDown — YouTube Video & Audio Downloader</title>
+  <link rel="stylesheet" href="style.css" />
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎬</text></svg>" />
+</head>
+<body>
+
+<div class="bg-gradient"></div>
+
+<!-- ── Full-screen Download Loader Overlay ── -->
+<div id="dlOverlay" class="dl-overlay hidden" onclick="cancelOverlay()">
+  <div class="dl-overlay-box" onclick="event.stopPropagation()">
+    <div class="dl-spinner"></div>
+    <p class="dl-overlay-title">Preparing download…</p>
+    <p class="dl-overlay-sub">Fetching and streaming from YouTube.<br>Your browser will prompt the download shortly.</p>
+    <button class="btn-cancel" onclick="cancelOverlay()">Cancel</button>
+  </div>
+</div>
+
+<div class="container">
+
+  <!-- ── Header ── -->
+  <header class="header">
+    <div class="logo">
+      <span class="logo-icon">▶</span>
+      <span class="logo-text">YT<span class="accent">Down</span></span>
+    </div>
+    <p class="tagline">Download YouTube videos in any resolution or as MP3 — fast &amp; free</p>
+  </header>
+
+  <!-- ── Search Card ── -->
+  <section class="search-card card">
+    <div class="input-group">
+      <span class="input-icon">🔗</span>
+      <input
+        id="urlInput"
+        type="url"
+        placeholder="Paste YouTube video or Shorts link here…"
+        autocomplete="off"
+        spellcheck="false"
+      />
+      <button id="fetchBtn" class="btn btn-primary" onclick="fetchInfo()">
+        <span class="btn-text">Fetch</span>
+        <span class="btn-spinner hidden"></span>
+      </button>
+    </div>
+    <div id="errorMsg" class="error-msg hidden"></div>
+  </section>
+
+  <!-- ── Video Info Card ── -->
+  <section id="videoInfo" class="info-card card hidden">
+    <div class="thumbnail-wrap" id="thumbWrap">
+      <img id="thumbnail" src="" alt="Thumbnail" />
+      <div class="play-overlay">▶</div>
+    </div>
+    <div class="info-right">
+      <h2 id="videoTitle" class="video-title"></h2>
+      <p id="videoChannel" class="video-channel"></p>
+      <p id="videoDuration" class="video-duration"></p>
+    </div>
+  </section>
+
+  <!-- ── Format Picker Card ── -->
+  <section id="formatSection" class="format-card card hidden">
+
+    <div class="tabs">
+      <button class="tab active" id="tabVideoBtn" onclick="switchTab('video', this)">🎬 Video</button>
+      <button class="tab" id="tabAudioBtn" onclick="switchTab('audio', this)">🎵 MP3 / Audio</button>
+    </div>
+
+    <!-- Video Tab -->
+    <div id="videoTab" class="tab-content">
+      <p class="section-label">Select Video Quality</p>
+      <div id="qualityGrid" class="quality-grid"></div>
+
+      <!-- Customization Option: Download without audio -->
+      <div class="options-panel">
+        <label class="toggle-row">
+          <span class="toggle-label">
+            <span class="toggle-icon">🔇</span>
+            <span>Download video <strong>without audio</strong> (video only)</span>
+          </span>
+          <input type="checkbox" id="noAudioToggle" class="toggle-input" onchange="onToggleAudio()" />
+          <span class="toggle-slider"></span>
+        </label>
+      </div>
+
+      <div id="selectedQualityBadge" class="selected-badge hidden">
+        Selected: <strong id="selectedQualityLabel"></strong>
+      </div>
+
+      <button id="downloadVideoBtn" class="btn btn-download" onclick="downloadNow('video')" disabled>
+        ⬇ Download Video
+      </button>
+    </div>
+
+    <!-- Audio Tab -->
+    <div id="audioTab" class="tab-content hidden">
+      <p class="section-label">Select Audio Bitrate</p>
+      <div id="audioGrid" class="quality-grid"></div>
+
+      <div id="selectedAudioBadge" class="selected-badge hidden">
+        Selected: <strong id="selectedAudioLabel"></strong>
+      </div>
+
+      <button id="downloadAudioBtn" class="btn btn-download btn-audio" onclick="downloadNow('audio')" disabled>
+        ⬇ Download MP3
+      </button>
+    </div>
+
+  </section>
+
+  <!-- ── Footer ── -->
+  <footer class="footer">
+    <p>Local Web Server Application · Unlimited download time · For personal use only</p>
+  </footer>
+
+</div>
+
+<script src="script.js"></script>
+</body>
+</html>
